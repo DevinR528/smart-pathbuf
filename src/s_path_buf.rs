@@ -76,7 +76,7 @@ impl SmartPathBuf {
     }
     // TODO make more efficient ??
     pub fn pop(&mut self) -> bool {
-        self.segments.pop();
+        
         if let Some(last_idx) = self.indexes.last_mut() {
             if *last_idx == 1 {
                 self.indexes.pop();
@@ -84,7 +84,16 @@ impl SmartPathBuf {
                 *last_idx -= 1;
             }
         }
+        self.segments.pop();
+        self.len -= 1;
         self.inner.pop()
+    }
+    pub fn pop_last(&mut self) {
+        if let Some(last) = self.indexes.pop() {
+            for _ in 0..last {
+                self.pop();
+            }
+        }
     }
     pub fn initial(&mut self) {
         if let Some(init) = self.init {
@@ -209,7 +218,6 @@ mod tests {
         path.pop();
         assert_eq!(path.init, Some(2));
         assert_eq!(path.indexes, vec![1, 2]);
-        println!("{:?}", path);
         let p: &Path = path.as_ref();
         assert_eq!(p, Path::new("from/you/hello/hello/bye"));
     }
@@ -228,6 +236,20 @@ mod tests {
         let s: &OsStr = path.as_ref();
         let s = s.to_str().expect("");
         assert_eq!(s, "from/you")
+    }
+
+    #[test]
+    fn test_pop_last()  {
+        let mut path = SmartPathBuf::from("from/you");
+        assert_eq!(path.len, 2);
+        path.push("hello");
+        path.push("hello/bye");
+        assert_eq!(path.init, Some(2));
+        assert_eq!(path.len, 5);
+        path.pop_last();
+        assert_eq!(path.len, 3);
+        let p: &Path = path.as_ref();
+        assert_eq!(p, Path::new("from/you/hello"));
     }
 
 }
