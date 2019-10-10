@@ -9,7 +9,7 @@ pub struct SmartPathBuf {
     inner: PathBuf,
     len: usize,
     init: Option<usize>,
-    segments: Vec<
+    segments: Vec<OsString>,
     indexes: Vec<usize>,
 }
 
@@ -19,6 +19,7 @@ impl SmartPathBuf {
             inner: PathBuf::new(),
             len: 0,
             init: None,
+            segments: Vec::new(),
             indexes: Vec::new(),
         }
     }
@@ -27,6 +28,7 @@ impl SmartPathBuf {
             inner,
             len,
             init,
+            segments: Vec::new(),
             indexes: Vec::new(),
         }
     }
@@ -36,6 +38,7 @@ impl SmartPathBuf {
             inner: PathBuf::with_capacity(cap),
             len: 0,
             init: None,
+            segments: Vec::new(),
             indexes: Vec::new(),
         }
     }
