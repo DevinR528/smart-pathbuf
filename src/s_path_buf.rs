@@ -9,7 +9,6 @@ pub struct SmartPathBuf {
     inner: PathBuf,
     len: usize,
     init: Option<usize>,
-    segments: Vec<OsString>,
     indexes: Vec<usize>,
 }
 
@@ -19,7 +18,6 @@ impl SmartPathBuf {
             inner: PathBuf::new(),
             len: 0,
             init: None,
-            segments: Vec::new(),
             indexes: Vec::new(),
         }
     }
@@ -28,7 +26,6 @@ impl SmartPathBuf {
             inner,
             len,
             init,
-            segments: Vec::new(),
             indexes: Vec::new(),
         }
     }
@@ -38,7 +35,6 @@ impl SmartPathBuf {
             inner: PathBuf::with_capacity(cap),
             len: 0,
             init: None,
-            segments: Vec::new(),
             indexes: Vec::new(),
         }
     }
@@ -65,7 +61,6 @@ impl SmartPathBuf {
             let len = seg.len();
             self.len += len;
             self.indexes.push(len);           
-            self.segments.extend(seg);
             self.inner.push(path);
         } else {
             let seg = path.as_ref().iter().count();
@@ -76,7 +71,6 @@ impl SmartPathBuf {
     }
     // TODO make more efficient ??
     pub fn pop(&mut self) -> bool {
-        
         if let Some(last_idx) = self.indexes.last_mut() {
             if *last_idx == 1 {
                 self.indexes.pop();
@@ -84,7 +78,6 @@ impl SmartPathBuf {
                 *last_idx -= 1;
             }
         }
-        self.segments.pop();
         self.len -= 1;
         self.inner.pop()
     }
@@ -102,6 +95,9 @@ impl SmartPathBuf {
                 self.pop();
             }
         }
+    }
+    pub fn set_file_name<S: AsRef<OsStr>>(&mut self, f: S) {
+
     }
 }
 
@@ -164,6 +160,8 @@ impl Default for SmartPathBuf {
     }
 }
 
+
+
 #[cfg(test)]
 mod tests {
 
@@ -206,7 +204,6 @@ mod tests {
         let mut tp = SmartPathBuf::from("");
         tp.push("some");
         tp.pop();
-        assert!(tp.segments.is_empty());
 
         let mut path = SmartPathBuf::from("from/you");
         assert_eq!(path.len, 2);
@@ -230,7 +227,7 @@ mod tests {
         path.push("hello/bye");
         assert_eq!(path.len, 5);
         path.push("hello");
-        // path.push("hello/world/bye");
+
         path.initial();
         assert!(path.indexes.is_empty());
         let s: &OsStr = path.as_ref();

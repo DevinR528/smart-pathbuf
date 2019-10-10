@@ -8,6 +8,16 @@ edition = "2018"
 
 [dependencies]
 
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "smart_pathbuf"
+harness = false
+
+[lib]
+bench = false
+
 [features]
 default=[]
 unstable=[]
