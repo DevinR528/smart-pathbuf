@@ -9,6 +9,7 @@ pub struct SmartPathBuf {
     inner: PathBuf,
     len: usize,
     init: Option<usize>,
+    segments: Vec<
     indexes: Vec<usize>,
 }
 
@@ -160,7 +161,7 @@ impl Default for SmartPathBuf {
     }
 }
 
-
+impl std::ops::Index
 
 #[cfg(test)]
 mod tests {
