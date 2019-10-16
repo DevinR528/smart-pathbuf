@@ -6,12 +6,18 @@
 A wrapper around rust's `PathBuf` adding convenience methods for manipulating paths. `SmartPathBuf`
 has all the same functionality as `PathBuf` and more, it is an extension and will always maintain feature
 parity with `PathBuf`. `SmartPathBuf` will add some overhead as it needs to keep more information around,
-I will work to keep it as low overhead as possible.
+I will work to keep it as low as possible.
 
 ## Use
 ```toml
 smart-pathbuf = "0.3"
 ```
+The `PathBuf` methods that are nightly only now are behind a feature flag and can
+be enabled.
+```toml
+smart-pathbuf = { version = "0.3", features = ["unstable"] }
+```
+As std lib stabilize these features so will this crate.
 
 ## Examples
 No more calling multiple `.pop()`.
@@ -33,7 +39,15 @@ s_path.initial();
 s_path.push("another/file");
 do_more(&s_path);
 ```
+
 `SmartPathBuf` can be manipulated with indexes and ranges.
 ```rust
-
+ let mut path = SmartPathBuf::from("hello/world/bye");
+ let p = path.range(..path.len() - 1);
+ assert_eq!(p.as_path(), PathBuf::from("hello/world").as_path());
 ```
+Or slice from the middle to end `SmartPathBuf` will handle slicing absolute paths
+returning a non absolute path.
+
+## Contribute
+[Pull requests](https://github.com/DevinR528/smart-pathbuf/pulls) or [suggestions](https://github.com/DevinR528/smart-pathbuf/issues) welcome!

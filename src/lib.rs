@@ -19,4 +19,4 @@
 //! 
 
 mod s_path_buf;
-pub use s_path_buf::SmartPathBuf;
+pub use s_path_buf::{SmartPathBuf, PathRange};

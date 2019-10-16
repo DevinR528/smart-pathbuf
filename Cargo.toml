@@ -1,12 +1,12 @@
 [package]
 name = "smart-path"
-version = "0.1.0"
+version = "0.3.0"
 authors = ["Devin R <devin.ragotzy@gmail.com>"]
 license = "MIT/Apache-2.0"
 description = "Wrapper to extend PathBuf's functionality"
 repository = "https://github.com/DevinR528/smart-pathbuf"
 keywords = ["Path", "PathBuf", "Wrapper"]
-categories = ["development-tools::cargo-plugins", "development-tools"]
+categories = ["filesystem", "api-bindings"]
 edition = "2018"
 readme = "README.md"
 

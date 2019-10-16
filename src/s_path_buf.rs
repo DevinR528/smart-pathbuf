@@ -2,9 +2,24 @@ use std::borrow::Borrow;
 use std::convert::Infallible;
 use std::ffi::{OsStr, OsString};
 use std::fmt::{self, Debug};
-use std::ops::{Bound, Deref, Range, RangeBounds, RangeFrom, RangeTo, RangeFull, Index, IndexMut};
+use std::ops::{Deref, Range, RangeFrom, RangeTo, RangeFull, Index, IndexMut};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+
+/// Allows `SmartPath`s to be sliced using `Range` syntax.
+/// 
+/// # Example
+/// ```
+/// use std::path::PathBuf;
+/// use smart_path::{SmartPathBuf, PathRange};
+/// 
+/// let mut path = SmartPathBuf::from("hello/world/bye");
+/// let p = path.range(..path.len() - 1);
+/// assert_eq!(p.as_path(), PathBuf::from("hello/world").as_path());
+/// ```
+pub trait PathRange<T: ?Sized> {
+    fn range(&self, range: T) -> Self;
+}
 
 #[derive(Clone)]
 pub struct SmartPathBuf {
@@ -36,27 +51,6 @@ impl SmartPathBuf {
         }
     }
 
-    /// ¯\\_(ツ)_/¯
-    fn collect(&self, from: usize, to: usize) -> SmartPathBuf {
-        let sep = if std::path::is_separator('/') { "/" } else { "\\" };
-        let is_root = self.is_absolute();
-
-        let p = self.segments[from..to]
-            .iter()
-            .enumerate()
-            .map(|(i, p)| {
-                let seg = p.to_str().unwrap();
-                if (i == 0 || i == 1) && is_root {
-                    format!("{}", seg)
-                } else {
-                    format!("{}{}", sep, seg)
-                }
-            })
-            .collect::<String>();
-        // unwrap should be ok we had a valid path before
-        SmartPathBuf::from_str(&p).unwrap_or_default()
-    }
-
     #[cfg(feature = "unstable")]
     pub fn with_capacity(cap: usize) -> SmartPathBuf {
         Self {
@@ -69,6 +63,12 @@ impl SmartPathBuf {
     }
     pub fn as_path(&self) -> &Path {
         self
+    }
+    pub fn len(&self) -> usize {
+        self.len
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
     }
     /// When pushing segments to a new `SmartPathBuf` first push sets the initial size,
     /// using one of the from methods also sets initial size.
@@ -88,7 +88,7 @@ impl SmartPathBuf {
     /// assert_eq!(path.as_path(), PathBuf::from("hello/world/bye").as_path());
     /// ```
     pub fn push<P: AsRef<Path>>(&mut self, path: P) {
-        if let Some(_) = self.init {
+        if self.init.is_some() {
             let seg = path.as_ref().iter()
                 .map(|os| os.to_os_string())
                 .collect::<Vec<_>>();
@@ -291,56 +291,13 @@ impl PartialEq for SmartPathBuf {
     }
 }
 
-trait Lazy<P: AsRef<OsStr>> {
-    fn join(&self) -> P;
-}
-
-impl Lazy<OsString> for &[OsString] {
-    fn join(&self) -> OsString {
-        self.iter().fold(OsString::new(), |mut os, seg| {
-            os.push(seg);
-            os
-        })
-    }
-}
-
-pub struct LazyPath<'a>(&'a [OsString]);
-// pub struct LazyPath<P: AsRef<OsStr>>(P);
-
-impl<P: AsRef<OsStr>> Lazy<&OsStr> for LazyPath<P> {
-    fn join(&self) -> &OsStr {
-        &self.join()
-    }
-}
-
-impl<P: AsRef<OsStr>> Deref for LazyPath<P> {
-    type Target = Path;
-    fn deref(&self) -> &Self::Target {
-        Path::new(&self.join())
-    }
-}
-
-impl<P: AsRef<OsStr>> AsRef<OsStr> for LazyPath<P> {
-    fn as_ref(&self) -> &OsStr {
-        self.join()
-    }
-}
-
-impl Index<RangeFull> for SmartPathBuf {
-    type Output = LazyPath<OsString>;
-    /// On unix the `/` is always the first element in a Path
-    fn index(&self, index: RangeFull) -> &Self::Output {
-        LazyPath(&self.segments[index])
-    }
-}
-
 macro_rules! index_impl {
     ($typ:ty, $out:ty) => {
         impl Index<$typ> for SmartPathBuf {
             type Output = $out;
             /// On unix the `/` is always the first element in a Path
-            fn index(&self, index: $typ) -> &Self::Output {
-                &self.segments[index]
+            fn index(&self, rng: $typ) -> &Self::Output {
+                &self.segments[rng]
             }
         }
     };
@@ -349,161 +306,143 @@ macro_rules! index_impl {
 macro_rules! index_mut_impl {
     ($typ:ty, $out:ty) => {
         impl IndexMut<$typ> for SmartPathBuf {
-            fn index_mut(&mut self, index: $typ) -> &mut Self::Output {
-                &mut self.segments[index]
+            fn index_mut(&mut self, rng: $typ) -> &mut Self::Output {
+                &mut self.segments[rng]
             }
         }
     };
 }
 
-// index_impl!(usize, OsString);
-// index_impl!(Range<usize>, [OsString]);
-// index_impl!(RangeFull, [OsString]);
-// index_impl!(RangeFrom<usize>, [OsString]);
-// index_impl!(RangeTo<usize>, [OsString]);
+impl Index<usize> for SmartPathBuf {
+    type Output = OsString;
+    fn index(&self, idx: usize) -> &Self::Output {
+        &self.segments[idx]
+    }
+}
+index_impl!(Range<usize>, [OsString]);
+index_impl!(RangeFull, [OsString]);
+index_impl!(RangeFrom<usize>, [OsString]);
+index_impl!(RangeTo<usize>, [OsString]);
 
-index_mut_impl!(usize, OsString);
+impl IndexMut<usize> for SmartPathBuf {
+    fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
+        &mut self.segments[idx]
+    }
+}
 index_mut_impl!(Range<usize>, [OsString]);
 index_mut_impl!(RangeFull, [OsString]);
 index_mut_impl!(RangeFrom<usize>, [OsString]);
 index_mut_impl!(RangeTo<usize>, [OsString]);
 
+macro_rules! index_mut_smartpath_impl {
+    ($typ:ty, #[$meta:meta]) => {
+        impl PathRange<$typ> for SmartPathBuf {
+            #[$meta]
+            fn range(&self, range: $typ) -> Self {
+                let sep = if std::path::is_separator('/') { "/" } else { "\\" };
+                let is_root = self.segments.first() == Some(&OsString::from(sep));
+                let p = self.segments[range]
+                    .iter()
+                    .enumerate()
+                    .map(|(i, p)| {
+                        let seg = p.to_str().unwrap();
+                        if (i == 0 || i == 1) && is_root {
+                            seg.to_string()
+                        } else if i == 0 && !is_root {
+                            seg.to_string()
+
+                        } else {
+                            format!("{}{}", sep, seg)
+                        }
+                    })
+                    .collect::<String>();
+                // unwrap should be ok we had a valid path before
+                SmartPathBuf::from_str(&p).unwrap_or_default()
+            }
+        }
+    };
+}
+
+index_mut_smartpath_impl!(
+    RangeFull,
+    #[doc="Returns a new `SmartPath` from the range provided"]
+);
+
+index_mut_smartpath_impl!(
+    RangeTo<usize>,
+    #[doc="Returns a new `SmartPath` from the range provided"]
+);
+
+impl PathRange<RangeFrom<usize>> for SmartPathBuf {
+    /// Returns a new `SmartPath` from the range provided
+    fn range(&self, range: RangeFrom<usize>) -> Self {
+        let sep = if std::path::is_separator('/') { "/" } else { "\\" };
+        let is_root = self.segments.get(range.start) == Some(&OsString::from(sep));
+        let p = self.segments[range]
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                let seg = p.to_str().unwrap();
+                if (i == 0 || i == 1) && is_root {
+                    seg.to_string()
+                } else if i == 0 && !is_root {
+                    seg.to_string()
+
+                } else {
+                    format!("{}{}", sep, seg)
+                }
+            })
+            .collect::<String>();
+        // unwrap should be ok we had a valid path before
+        SmartPathBuf::from_str(&p).unwrap_or_default()
+    }
+}
+impl PathRange<Range<usize>> for SmartPathBuf {
+    /// Returns a new `SmartPath` from the range provided
+    fn range(&self, range: Range<usize>) -> Self {
+        let sep = if std::path::is_separator('/') { "/" } else { "\\" };
+        let is_root = self.segments.get(range.start) == Some(&OsString::from(sep));
+        let p = self.segments[range]
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                let seg = p.to_str().unwrap();
+                if (i == 0 || i == 1) && is_root {
+                    seg.to_string()
+                } else if i == 0 && !is_root {
+                    seg.to_string()
+
+                } else {
+                    format!("{}{}", sep, seg)
+                }
+            })
+            .collect::<String>();
+        // unwrap should be ok we had a valid path before
+        SmartPathBuf::from_str(&p).unwrap_or_default()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-
-    macro_rules! testy {
-        // tests push and pop counts for segments, initial and len
-        (
-            start: $start:expr,
-            init_len: $init_len:expr,
-            push: $push:expr,
-            push_len: $push_len:expr,
-            pop_count: $pop_count:expr,
-            pop_len: $pop_len:expr,
-            cmp: $cmp:expr,
-            sep_char: $sep_char:expr,
-        ) => {
-            let mut s_path = SmartPathBuf::from($start);
-            assert_eq!(
-                $init_len,
-                s_path.len,
-                "initial smart path len {} init {}",
-                s_path.len,
-                $init_len
-            );
-            assert_eq!(
-                $init_len,
-                s_path.segments.len(),
-                "segments init len {} {}",
-                s_path.segments.len(),
-                $init_len,
-            );
-
-            for p in $push.iter() {
-                s_path.push(p)
-            }
-            assert_eq!($push_len, s_path.len);
-            assert_eq!($push_len, s_path.segments.len());
-
-            for _ in 0..$pop_count {
-                s_path.pop();
-            }
-            assert_eq!($pop_len, s_path.len);
-            assert_eq!($pop_len, s_path.segments.len());
-
-            let expected = PathBuf::from(&$cmp);
-            assert_eq!(&expected, s_path.as_path());
-            let seg_path = PathBuf::from_str(s_path.collect(0, s_path.len).as_os_str().to_str().unwrap());
-            assert_eq!(expected, seg_path.unwrap(), "segments collected");
-        };
-        // tests initial
-        (
-            start: $start:expr,
-            init_len: $init_len:expr,
-            push: $push:expr,
-            push_len: $push_len:expr,
-            cmp: $cmp:expr,
-        ) => {
-            let mut s_path = SmartPathBuf::from($start);
-            assert_eq!($init_len, s_path.len);
-            assert_eq!(Some($init_len), s_path.init);
-            assert_eq!($init_len, s_path.segments.len());
-
-            for p in $push.iter() {
-                s_path.push(p)
-            }
-
-            assert_eq!($push_len, s_path.len);
-            assert_eq!($push_len, s_path.segments.len());
-
-            s_path.initial();
-
-            assert_eq!($init_len, s_path.len, "Initial len");
-            assert_eq!(Some($init_len), s_path.init);
-            assert_eq!($init_len, s_path.segments.len());
-
-            assert_eq!(&PathBuf::from(&$cmp), s_path.as_path());
-        };
-        // tests pop_* methods
-        (
-            start: $start:expr,
-            init_len: $init_len:expr,
-            push: $push:expr,
-            push_len: $push_len:expr,
-            call: $call:ident,
-            pop_len: $pop_len:expr,
-            cmp: $cmp:expr,
-        ) => {
-            let mut s_path = SmartPathBuf::from($start);
-            assert_eq!($init_len, s_path.len);
-            assert_eq!(Some($init_len), s_path.init);
-            assert_eq!($init_len, s_path.segments.len());
-
-            for p in $push.iter() {
-                s_path.push(p)
-            }
-
-            assert_eq!($push_len, s_path.len);
-            assert_eq!($push_len, s_path.segments.len());
-
-            s_path.$call();
-
-            assert_eq!($pop_len, s_path.len);
-            assert_eq!($pop_len, s_path.segments.len());
-
-            assert_eq!(&PathBuf::from(&$cmp), s_path.as_path());
-        };
-        // tests file name and extension methods
-        (
-            start: $start:expr,
-            cmp: $cmp:expr,
-            file_name: $file_name:expr,
-            extension: $extension:expr,
-        ) => {
-            let mut s_path = SmartPathBuf::from($start);
-
-            s_path.set_file_name(&$file_name);
-            let stem = s_path.file_stem().map(|p| p.to_str().unwrap()).unwrap();
-            let expected_stem: &str = $file_name;
-            assert_eq!(expected_stem, stem);
-
-            s_path.set_extension(&$extension);
-            let ext = s_path.extension().map(|p| p.to_str().unwrap()).unwrap();
-            let expected_ext: &str = $extension;
-            assert_eq!(expected_ext, ext);
-
-            assert_eq!(&PathBuf::from(&$cmp), s_path.as_path());
-        };
-    }
-
     use super::*;
+    use crate::testy;
+
+    #[test]
+    fn test_range() {
+        let s = SmartPathBuf::from_str("/home/hello/../knuth").unwrap();
+
+        assert_eq!(Path::new("/home/hello/../knuth"), s.range(..).as_path());
+        assert_eq!(Path::new("home/hello/../knuth"), s.range(1..).as_path());
+        assert_eq!(Path::new("hello/../knuth"), s.range(2..).as_path());
+        assert_eq!(Path::new("/home/hello/"), s.range(..3).as_path());
+        assert_eq!(Path::new("home"), s.range(1..2).as_path());
+        assert_eq!(Path::new("/home/hello/../knuth"), s.range(0..s.len()).as_path());
+    }
 
     #[test]
     fn seg_join() {
         let s = SmartPathBuf::from_str("/home/hello/../knuth").unwrap();
-
-        let seg_path = s.collect(0, s.len);
-
+        let seg_path = s.range(..);
         assert_eq!(s, seg_path, "segments collected");
     }
 
@@ -647,7 +586,132 @@ mod tests {
         let p: &Path = path.as_ref();
         assert_eq!(p, Path::new("from/you/hello"));
     }
+}
 
-    
+mod macros {
+    #[macro_export]
+    macro_rules! testy {
+        // tests push and pop counts for segments, initial and len
+        (
+            start: $start:expr,
+            init_len: $init_len:expr,
+            push: $push:expr,
+            push_len: $push_len:expr,
+            pop_count: $pop_count:expr,
+            pop_len: $pop_len:expr,
+            cmp: $cmp:expr,
+            sep_char: $sep_char:expr,
+        ) => {
+            let mut s_path = SmartPathBuf::from($start);
+            assert_eq!(
+                $init_len,
+                s_path.len,
+                "initial smart path len {} init {}",
+                s_path.len,
+                $init_len
+            );
+            assert_eq!(
+                $init_len,
+                s_path.segments.len(),
+                "segments init len {} {}",
+                s_path.segments.len(),
+                $init_len,
+            );
 
+            for p in $push.iter() {
+                s_path.push(p)
+            }
+            assert_eq!($push_len, s_path.len);
+            assert_eq!($push_len, s_path.segments.len());
+
+            for _ in 0..$pop_count {
+                s_path.pop();
+            }
+            assert_eq!($pop_len, s_path.len);
+            assert_eq!($pop_len, s_path.segments.len());
+
+            let expected = PathBuf::from(&$cmp);
+            assert_eq!(&expected, s_path.as_path());
+            let seg_path = PathBuf::from_str(s_path.range(..).as_os_str().to_str().unwrap());
+            assert_eq!(expected, seg_path.unwrap(), "segments collected");
+        };
+        // tests initial
+        (
+            start: $start:expr,
+            init_len: $init_len:expr,
+            push: $push:expr,
+            push_len: $push_len:expr,
+            cmp: $cmp:expr,
+        ) => {
+            let mut s_path = SmartPathBuf::from($start);
+            assert_eq!($init_len, s_path.len);
+            assert_eq!(Some($init_len), s_path.init);
+            assert_eq!($init_len, s_path.segments.len());
+
+            for p in $push.iter() {
+                s_path.push(p)
+            }
+
+            assert_eq!($push_len, s_path.len);
+            assert_eq!($push_len, s_path.segments.len());
+
+            s_path.initial();
+
+            assert_eq!($init_len, s_path.len, "Initial len");
+            assert_eq!(Some($init_len), s_path.init);
+            assert_eq!($init_len, s_path.segments.len());
+
+            assert_eq!(&PathBuf::from(&$cmp), s_path.as_path());
+        };
+        // tests pop_* methods
+        (
+            start: $start:expr,
+            init_len: $init_len:expr,
+            push: $push:expr,
+            push_len: $push_len:expr,
+            call: $call:ident,
+            pop_len: $pop_len:expr,
+            cmp: $cmp:expr,
+        ) => {
+            let mut s_path = SmartPathBuf::from($start);
+            assert_eq!($init_len, s_path.len);
+            assert_eq!(Some($init_len), s_path.init);
+            assert_eq!($init_len, s_path.segments.len());
+
+            for p in $push.iter() {
+                s_path.push(p)
+            }
+
+            assert_eq!($push_len, s_path.len);
+            assert_eq!($push_len, s_path.segments.len());
+
+            s_path.$call();
+
+            assert_eq!($pop_len, s_path.len);
+            assert_eq!($pop_len, s_path.segments.len());
+
+            assert_eq!(&PathBuf::from(&$cmp), s_path.as_path());
+        };
+        // tests file name and extension methods
+        (
+            start: $start:expr,
+            cmp: $cmp:expr,
+            file_name: $file_name:expr,
+            extension: $extension:expr,
+        ) => {
+            let mut s_path = SmartPathBuf::from($start);
+
+            s_path.set_file_name(&$file_name);
+            let stem = s_path.file_stem().map(|p| p.to_str().unwrap()).unwrap();
+            let expected_stem: &str = $file_name;
+            assert_eq!(expected_stem, stem);
+
+            s_path.set_extension(&$extension);
+            let ext = s_path.extension().map(|p| p.to_str().unwrap()).unwrap();
+            let expected_ext: &str = $extension;
+            assert_eq!(expected_ext, ext);
+
+            assert_eq!(&PathBuf::from(&$cmp), s_path.as_path());
+        };
+    }
 }
