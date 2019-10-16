@@ -9,7 +9,6 @@ keywords = ["Path", "PathBuf", "Wrapper"]
 categories = ["filesystem", "api-bindings"]
 edition = "2018"
 readme = "README.md"
-exclude = ["benches"]
 
 
 [dependencies]
