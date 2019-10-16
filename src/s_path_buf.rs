@@ -2,17 +2,17 @@ use std::borrow::Borrow;
 use std::convert::Infallible;
 use std::ffi::{OsStr, OsString};
 use std::fmt::{self, Debug};
-use std::ops::{Deref, Range, RangeFrom, RangeTo, RangeFull, Index, IndexMut};
+use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 /// Allows `SmartPath`s to be sliced using `Range` syntax.
-/// 
+///
 /// # Example
 /// ```
 /// use std::path::PathBuf;
 /// use smart_path::{SmartPathBuf, PathRange};
-/// 
+///
 /// let mut path = SmartPathBuf::from("hello/world/bye");
 /// let p = path.range(..path.len() - 1);
 /// assert_eq!(p.as_path(), PathBuf::from("hello/world").as_path());
@@ -72,29 +72,31 @@ impl SmartPathBuf {
     }
     /// When pushing segments to a new `SmartPathBuf` first push sets the initial size,
     /// using one of the from methods also sets initial size.
-    /// 
+    ///
     /// # Example
     /// ```
     /// use std::path::PathBuf;
     /// use smart_path::SmartPathBuf;
-    /// 
+    ///
     /// let mut path = SmartPathBuf::new();
     /// path.push("hello/world/bye");
     /// // or
     /// let mut path = SmartPathBuf::from("hello/world/bye");
-    /// 
+    ///
     /// path.push("more/stuff");
     /// path.initial();
     /// assert_eq!(path.as_path(), PathBuf::from("hello/world/bye").as_path());
     /// ```
     pub fn push<P: AsRef<Path>>(&mut self, path: P) {
         if self.init.is_some() {
-            let seg = path.as_ref().iter()
+            let seg = path
+                .as_ref()
+                .iter()
                 .map(|os| os.to_os_string())
                 .collect::<Vec<_>>();
-            
+
             self.len += seg.len();
-            self.indexes.push(seg.len());           
+            self.indexes.push(seg.len());
             self.segments.extend(seg);
 
             self.inner.push(path);
@@ -126,7 +128,7 @@ impl SmartPathBuf {
     /// ```
     /// use std::path::PathBuf;
     /// use smart_path::SmartPathBuf;
-    /// 
+    ///
     /// let mut path = SmartPathBuf::new();
     /// path.push("hello/world/bye");
     /// path.push("more/stuff");
@@ -197,17 +199,17 @@ impl SmartPathBuf {
         self.inner.reserve(more)
     }
 
-     #[cfg(feature = "unstable")]
+    #[cfg(feature = "unstable")]
     pub fn reserve_exact(&mut self, more: usize) {
         self.inner.reserve_exact(more)
     }
 
-     #[cfg(feature = "unstable")]
+    #[cfg(feature = "unstable")]
     pub fn shrink_to_fit(&mut self) {
         self.inner.shrink_to_fit()
     }
 
-     #[cfg(feature = "unstable")]
+    #[cfg(feature = "unstable")]
     pub fn shrink_to(&mut self, min_cap: usize) {
         self.inner.shrink_to(min_cap)
     }
@@ -217,9 +219,9 @@ fn os_str_as_u8_slice(s: &OsStr) -> &[u8] {
     unsafe { &*(s as *const OsStr as *const [u8]) }
 }
 
-impl<T> From<&T> for SmartPathBuf 
+impl<T> From<&T> for SmartPathBuf
 where
-    T: ?Sized + AsRef<OsStr>
+    T: ?Sized + AsRef<OsStr>,
 {
     fn from(s: &T) -> SmartPathBuf {
         SmartPathBuf::from(s.as_ref().to_os_string())
@@ -339,7 +341,11 @@ macro_rules! index_mut_smartpath_impl {
         impl PathRange<$typ> for SmartPathBuf {
             #[$meta]
             fn range(&self, range: $typ) -> Self {
-                let sep = if std::path::is_separator('/') { "/" } else { "\\" };
+                let sep = if std::path::is_separator('/') {
+                    "/"
+                } else {
+                    "\\"
+                };
                 let is_root = self.segments.first() == Some(&OsString::from(sep));
                 let p = self.segments[range]
                     .iter()
@@ -350,7 +356,6 @@ macro_rules! index_mut_smartpath_impl {
                             seg.to_string()
                         } else if i == 0 && !is_root {
                             seg.to_string()
-
                         } else {
                             format!("{}{}", sep, seg)
                         }
@@ -376,7 +381,11 @@ index_mut_smartpath_impl!(
 impl PathRange<RangeFrom<usize>> for SmartPathBuf {
     /// Returns a new `SmartPath` from the range provided
     fn range(&self, range: RangeFrom<usize>) -> Self {
-        let sep = if std::path::is_separator('/') { "/" } else { "\\" };
+        let sep = if std::path::is_separator('/') {
+            "/"
+        } else {
+            "\\"
+        };
         let is_root = self.segments.get(range.start) == Some(&OsString::from(sep));
         let p = self.segments[range]
             .iter()
@@ -387,7 +396,6 @@ impl PathRange<RangeFrom<usize>> for SmartPathBuf {
                     seg.to_string()
                 } else if i == 0 && !is_root {
                     seg.to_string()
-
                 } else {
                     format!("{}{}", sep, seg)
                 }
@@ -400,7 +408,11 @@ impl PathRange<RangeFrom<usize>> for SmartPathBuf {
 impl PathRange<Range<usize>> for SmartPathBuf {
     /// Returns a new `SmartPath` from the range provided
     fn range(&self, range: Range<usize>) -> Self {
-        let sep = if std::path::is_separator('/') { "/" } else { "\\" };
+        let sep = if std::path::is_separator('/') {
+            "/"
+        } else {
+            "\\"
+        };
         let is_root = self.segments.get(range.start) == Some(&OsString::from(sep));
         let p = self.segments[range]
             .iter()
@@ -411,7 +423,6 @@ impl PathRange<Range<usize>> for SmartPathBuf {
                     seg.to_string()
                 } else if i == 0 && !is_root {
                     seg.to_string()
-
                 } else {
                     format!("{}{}", sep, seg)
                 }
@@ -436,7 +447,10 @@ mod tests {
         assert_eq!(Path::new("hello/../knuth"), s.range(2..).as_path());
         assert_eq!(Path::new("/home/hello/"), s.range(..3).as_path());
         assert_eq!(Path::new("home"), s.range(1..2).as_path());
-        assert_eq!(Path::new("/home/hello/../knuth"), s.range(0..s.len()).as_path());
+        assert_eq!(
+            Path::new("/home/hello/../knuth"),
+            s.range(0..s.len()).as_path()
+        );
     }
 
     #[test]
@@ -527,8 +541,15 @@ mod tests {
         path.push("hello/world/bye");
         assert_eq!(path.init, Some(3));
         assert!(path.indexes.is_empty());
-        assert_eq!(path.segments, [OsString::from("hello"), OsString::from("world"), OsString::from("bye")]);
-        
+        assert_eq!(
+            path.segments,
+            [
+                OsString::from("hello"),
+                OsString::from("world"),
+                OsString::from("bye")
+            ]
+        );
+
         let p: &Path = path.as_ref();
         assert_eq!(p, Path::new("hello/world/bye"));
     }
@@ -574,7 +595,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pop_last()  {
+    fn test_pop_last() {
         let mut path = SmartPathBuf::from("from/you");
         assert_eq!(path.len, 2);
         path.push("hello");
@@ -604,11 +625,9 @@ mod macros {
         ) => {
             let mut s_path = SmartPathBuf::from($start);
             assert_eq!(
-                $init_len,
-                s_path.len,
+                $init_len, s_path.len,
                 "initial smart path len {} init {}",
-                s_path.len,
-                $init_len
+                s_path.len, $init_len
             );
             assert_eq!(
                 $init_len,
