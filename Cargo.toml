@@ -2,9 +2,14 @@
 name = "smart-path"
 version = "0.1.0"
 authors = ["Devin R <devin.ragotzy@gmail.com>"]
+license = "MIT/Apache-2.0"
+description = "Wrapper to extend PathBuf's functionality"
+repository = "https://github.com/DevinR528/smart-pathbuf"
+keywords = ["Path", "PathBuf", "Wrapper"]
+categories = ["development-tools::cargo-plugins", "development-tools"]
 edition = "2018"
+readme = "README.md"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 

@@ -291,6 +291,49 @@ impl PartialEq for SmartPathBuf {
     }
 }
 
+trait Lazy<P: AsRef<OsStr>> {
+    fn join(&self) -> P;
+}
+
+impl Lazy<OsString> for &[OsString] {
+    fn join(&self) -> OsString {
+        self.iter().fold(OsString::new(), |mut os, seg| {
+            os.push(seg);
+            os
+        })
+    }
+}
+
+pub struct LazyPath<'a>(&'a [OsString]);
+// pub struct LazyPath<P: AsRef<OsStr>>(P);
+
+impl<P: AsRef<OsStr>> Lazy<&OsStr> for LazyPath<P> {
+    fn join(&self) -> &OsStr {
+        &self.join()
+    }
+}
+
+impl<P: AsRef<OsStr>> Deref for LazyPath<P> {
+    type Target = Path;
+    fn deref(&self) -> &Self::Target {
+        Path::new(&self.join())
+    }
+}
+
+impl<P: AsRef<OsStr>> AsRef<OsStr> for LazyPath<P> {
+    fn as_ref(&self) -> &OsStr {
+        self.join()
+    }
+}
+
+impl Index<RangeFull> for SmartPathBuf {
+    type Output = LazyPath<OsString>;
+    /// On unix the `/` is always the first element in a Path
+    fn index(&self, index: RangeFull) -> &Self::Output {
+        LazyPath(&self.segments[index])
+    }
+}
+
 macro_rules! index_impl {
     ($typ:ty, $out:ty) => {
         impl Index<$typ> for SmartPathBuf {
@@ -313,11 +356,11 @@ macro_rules! index_mut_impl {
     };
 }
 
-index_impl!(usize, OsString);
-index_impl!(Range<usize>, [OsString]);
-index_impl!(RangeFull, [OsString]);
-index_impl!(RangeFrom<usize>, [OsString]);
-index_impl!(RangeTo<usize>, [OsString]);
+// index_impl!(usize, OsString);
+// index_impl!(Range<usize>, [OsString]);
+// index_impl!(RangeFull, [OsString]);
+// index_impl!(RangeFrom<usize>, [OsString]);
+// index_impl!(RangeTo<usize>, [OsString]);
 
 index_mut_impl!(usize, OsString);
 index_mut_impl!(Range<usize>, [OsString]);
