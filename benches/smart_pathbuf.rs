@@ -1,8 +1,9 @@
 use criterion::{criterion_group, criterion_main, Criterion};
+use std::path::PathBuf;
 use smart_path::SmartPathBuf;
 
 fn push_pop_bench(c: &mut Criterion) {
-    let mut path = SmartPathBuf::from(std::env::current_dir().expect("no current dir"));
+    let mut path = SmartPathBuf::from("a/b/c");
     c.bench_function("push pop smart path buffer", |b| {
         b.iter(|| {
             path.push("x/y/z");
@@ -14,7 +15,7 @@ fn push_pop_bench(c: &mut Criterion) {
 fn init_bench(c: &mut Criterion) {
     c.bench_function("initialize smart path buffer", |b| {
         b.iter(|| {
-            let _path = SmartPathBuf::from(std::env::current_dir().expect("no current dir"));
+            let _path = SmartPathBuf::from("x/y/z");
         })
     });
 }

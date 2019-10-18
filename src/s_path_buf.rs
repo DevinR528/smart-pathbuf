@@ -794,6 +794,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(windows))]
     fn test_unix() {
         testy!(
             start: "/home/file.txt",
@@ -837,11 +838,11 @@ mod tests {
     fn test_windows() {
         testy!(
             start: "c:\\",
-            init_len: 1,
+            init_len: 2,
             push: ["windows", "hello", "bye"],
-            push_len: 4,
+            push_len: 5,
             pop_count: 2,
-            pop_len: 2,
+            pop_len: 3,
             cmp: "c:\\windows",
             sep_char: "",
         );

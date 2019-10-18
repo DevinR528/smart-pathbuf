@@ -2,6 +2,9 @@
 
 [![Build Status](https://travis-ci.com/DevinR528/smart-pathbuf.svg?branch=master)](https://travis-ci.com/DevinR528/smart-pathbuf)
 [![Latest Version](https://img.shields.io/crates/v/smart-path.svg)](https://crates.io/crates/smart-path)
+[![Latest Version](https://docs.rs/smart-path/badge.svg)](https://docs.rs/smart-path/latest/smart_path/)
+
+
 
 A wrapper around rust's `PathBuf` adding convenience methods for manipulating paths. `SmartPathBuf`
 has all the same functionality as `PathBuf` and more, it is an extension and will always maintain feature
